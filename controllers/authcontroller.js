@@ -32,11 +32,51 @@ const login = async (req, res) => {
     { expiresIn: '1h' }
   );
 
+  const refreshToken = jwt.sign(
+    { id: user._id, role: user.role },
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  res.cookie('refreshToken', refreshToken, { httpOnly: true, expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) });
   res.status(StatusCodes.OK).json({ accessToken });
+};
+
+const refresh = async (req, res) => {
+  const cookies = req.headers.cookie.split(';').reduce((acc, cookie) => {
+    const [key, value] = cookie.trim().split('=');
+    acc[key] = value;
+    return acc;
+  }, {});
+  const refreshToken = cookies.refreshToken;
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const newAccessToken = jwt.sign(
+      { id: decoded.id, role: decoded.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+    const newRefreshToken = jwt.sign(
+      { id: decoded.id },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: '7d' }
+    );
+    res.cookie('refreshToken', newRefreshToken, { httpOnly: true, expiresIn: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) });
+    res.status(StatusCodes.OK).json({ accessToken: newAccessToken });
+  } catch {
+    res.status(StatusCodes.UNAUTHORIZED).json({ msg: 'Invalid refresh token' });
+  }
 };
 
 const profile = async (req, res) => {
   res.status(StatusCodes.OK).json({ msg: 'User profile', user: req.user });
 };
 
-export default { register, login, profile };
+const admin = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(StatusCodes.FORBIDDEN).json({ msg: 'Access denied' });
+  }
+  res.status(StatusCodes.OK).json({ msg: 'Welcome, Admin' });
+};
+
+export default { register, login, profile, refresh, admin };

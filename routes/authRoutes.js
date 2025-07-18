@@ -10,5 +10,6 @@ const router = express.Router();
 router.post('/register', limit, registerValidator, authController.register);
 router.post('/login', limit, loginValidator, authController.login);
 router.get('/profile', authMiddleware, authController.profile);
-
+router.post('/refresh', limit, authController.refresh);
+router.get('/admin', authMiddleware, authController.admin);
 export default router;
